@@ -72,6 +72,15 @@ class VolumeClampService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun checkAndClamp() {
+        // 心跳：与无障碍服务同一套后台存活统计
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong(PREF_LAST_CHECK, now)
+        val gap = now - last
+        if (gap > prefs.getLong(PREF_MAX_GAP, 0L)) {
+            prefs.edit().putLong(PREF_MAX_GAP, gap).apply()
+        }
+        prefs.edit().putLong(PREF_LAST_CHECK, now).apply()
+
         if (!prefs.getBoolean(PREF_ENABLED, false)) return
         if (!isBtAudioConnected(this)) return
         val cap = capIndex(audio, prefs)

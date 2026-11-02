@@ -157,9 +157,21 @@ class MainActivity : Activity() {
             VolumeClampService.isRunning -> "运行中"
             else -> "已停止（回到本界面已自动恢复）"
         }
+        // 心跳诊断：无障碍服务在后台是否被冻结/清理过（展示后清零，统计下一段）
+        val maxGap = prefs.getLong(PREF_MAX_GAP, 0L)
+        prefs.edit().putLong(PREF_MAX_GAP, 0L).apply()
+        val gapText = if (maxGap <= 10000) {
+            "无断流（服务存活）"
+        } else {
+            val m = maxGap / 60000
+            val s = maxGap % 60000 / 1000
+            "断流 ${m}分${s}秒 —— 后台被冻结/清理过，去电池设置允许后台运行"
+        }
+
         tvStatus.text = listOf(
             "限制开关：" + if (enabled) "已启用" else "已关闭",
             "无障碍拦截：" + if (isAccessibilityEnabled(this)) "已开启" else "未开启（点下方按钮去开）",
+            "后台存活检测：$gapText",
             "前台服务：$svc",
             "蓝牙耳机：" + if (bt) "已连接" else "未连接"
         ).joinToString("\n")

@@ -74,6 +74,15 @@ class VolumeKeyAccessibilityService : AccessibilityService() {
 
     private fun checkAndClamp() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        // 心跳：记录本次检查时刻，并统计与上次的间隔（间隔异常大 = 后台被冻结/清理过）
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong(PREF_LAST_CHECK, now)
+        val gap = now - last
+        if (gap > prefs.getLong(PREF_MAX_GAP, 0L)) {
+            prefs.edit().putLong(PREF_MAX_GAP, gap).apply()
+        }
+        prefs.edit().putLong(PREF_LAST_CHECK, now).apply()
+
         if (!prefs.getBoolean(PREF_ENABLED, false)) return
         if (!isBtAudioConnected(this)) return
         val cap = capIndex(audio, prefs)

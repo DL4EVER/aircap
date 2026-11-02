@@ -11,6 +11,8 @@ const val PREFS = "config"
 const val PREF_ENABLED = "enabled"
 const val PREF_CAP_PERCENT = "cap_percent"
 const val PREF_FGS = "fgs_enabled"
+const val PREF_LAST_CHECK = "last_check"
+const val PREF_MAX_GAP = "max_gap"
 const val DEFAULT_CAP_PERCENT = 40
 
 /** 根据用户设置的上限百分比，换算成媒体流的音量档位 */
