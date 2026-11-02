@@ -10,8 +10,8 @@ import android.database.ContentObserver
 import android.media.AudioManager
 import android.os.Handler
 import android.os.IBinder
+import android.content.pm.ServiceInfo
 import android.os.Looper
-import android.os.ServiceInfo
 import android.provider.Settings
 
 /**

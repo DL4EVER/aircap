@@ -8,7 +8,7 @@ import android.content.Intent
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        val prefs = context.getSharedPreferences(PREFS, MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(PREF_ENABLED, false)) {
             context.startForegroundService(Intent(context, VolumeClampService::class.java))
         }
