@@ -54,8 +54,19 @@
 推送代码到 `main` 分支 → GitHub Actions 自动编译 → APK 自动发布到 Releases（tag `app-latest` 始终是最新版）。
 本地不需要安装任何开发环境。
 
+## AirPods 模式控制（v0.4+）
+
+安卓系统没有 AirPods 的降噪模式入口。本应用通过逆向的 AAP 协议直接控制：
+
+- 已配对 AirPods/Beats → 点「连接 AirPods」→ 用四个按钮切换 **降噪 / 自适应 / 通透 / 关闭**
+- 实现原理：经典蓝牙 L2CAP 固定通道（PSM `0x1001`）+ 明文 AAP 设置命令，不需要 root、不需要苹果密钥
+- 协议来源：开源项目 [CAPod](https://github.com/d4rken-org/capod)（MIT），已在其支持机型上验证
+- 兼容性：依赖 Android 10+ 公开 API `createInsecureL2capChannel()`。部分厂商 ROM 可能阉割该通道——连接失败可用 CAPod 交叉验证
+
 ## 后续计划
 
 - 按耳机分别记忆上限（不同耳机同一百分比响度差很多）
 - 突增保护（N 秒内跳多档直接压回）
-- 分贝级标定（用麦克风估测实际输出响度）
+- AirPods 精确电量（1% 粒度，需 IRK/ENC 密钥）
+- AirPods 入耳检测自动暂停/播放
+- AirPods 对话感知、按压力度等剩余 AAP 设置

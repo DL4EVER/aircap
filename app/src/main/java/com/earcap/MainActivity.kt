@@ -31,6 +31,10 @@ class MainActivity : Activity() {
     private lateinit var swEnabled: Switch
     private lateinit var sbCap: SeekBar
     private lateinit var swFgs: Switch
+    private lateinit var tvAirpodsStatus: TextView
+    private lateinit var btnAirpodsConnect: Button
+    private lateinit var airpods: AirPodsController
+    private val modeButtons = mutableListOf<Pair<Button, AncMode>>()
 
     // 只用来刷新界面上的"当前音量"显示
     private val volumeObserver = object : ContentObserver(handler) {
@@ -111,8 +115,88 @@ class MainActivity : Activity() {
             }
         }
 
+        setupAirPodsUi()
         requestNotificationPermissionIfNeeded()
         applyServiceState()
+    }
+
+    private fun setupAirPodsUi() {
+        airpods = AirPodsController(this)
+        tvAirpodsStatus = findViewById(R.id.tvAirpodsStatus)
+        btnAirpodsConnect = findViewById(R.id.btnAirpodsConnect)
+
+        modeButtons += findViewById<Button>(R.id.btnAnc) to AncMode.ANC
+        modeButtons += findViewById<Button>(R.id.btnAdaptive) to AncMode.ADAPTIVE
+        modeButtons += findViewById<Button>(R.id.btnTransparency) to AncMode.TRANSPARENCY
+        modeButtons += findViewById<Button>(R.id.btnOff) to AncMode.OFF
+        modeButtons.forEach { (btn, mode) ->
+            btn.setOnClickListener {
+                if (!airpods.connected) {
+                    toast("请先连接 AirPods")
+                    return@setOnClickListener
+                }
+                airpods.setMode(mode) { ok, msg ->
+                    if (!ok) toast(msg) else highlightMode(mode)
+                }
+            }
+        }
+
+        btnAirpodsConnect.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= 31 &&
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BT)
+                return@setOnClickListener
+            }
+            connectAirpods()
+        }
+        refreshAirpodsStatus()
+    }
+
+    private fun connectAirpods() {
+        tvAirpodsStatus.text = "正在连接…"
+        airpods.connect { ok, msg ->
+            refreshAirpodsStatus()
+            toast(msg)
+            if (!ok) tvAirpodsStatus.text = msg
+        }
+    }
+
+    private fun refreshAirpodsStatus() {
+        val connected = airpods.connected
+        tvAirpodsStatus.text = if (connected) {
+            "已连接：${airpods.deviceName ?: "AirPods"}"
+        } else {
+            "未连接"
+        }
+        btnAirpodsConnect.text = if (connected) "重新连接" else "连接 AirPods"
+        modeButtons.forEach { (btn, _) -> btn.isEnabled = connected }
+    }
+
+    private fun highlightMode(mode: AncMode) {
+        modeButtons.forEach { (btn, m) ->
+            btn.alpha = if (m == mode) 1f else 0.5f
+        }
+    }
+
+    private fun toast(msg: String) {
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_BT && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            connectAirpods()
+        }
+    }
+
+    override fun onDestroy() {
+        airpods.close()
+        super.onDestroy()
     }
 
     private fun capText() = "音量上限：${prefs.getInt(PREF_CAP_PERCENT, DEFAULT_CAP_PERCENT)}%"
@@ -141,6 +225,7 @@ class MainActivity : Activity() {
         // 若服务被系统清理，打开/回到本应用时自动拉起（自愈）
         applyServiceState()
         refreshStatus()
+        refreshAirpodsStatus()
     }
 
     override fun onPause() {
@@ -186,5 +271,9 @@ class MainActivity : Activity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+    }
+
+    companion object {
+        private const val REQUEST_BT = 2
     }
 }
