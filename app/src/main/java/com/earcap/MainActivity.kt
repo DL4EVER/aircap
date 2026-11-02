@@ -76,6 +76,17 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btnAccessibility).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
+        findViewById<Button>(R.id.btnAppInfo).setOnClickListener {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (_: Exception) {
+            }
+        }
         findViewById<Button>(R.id.btnBattery).setOnClickListener {
             val pm = getSystemService(POWER_SERVICE) as PowerManager
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
@@ -117,6 +128,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, volumeObserver)
+        // 若服务被系统清理，打开/回到本应用时自动拉起（自愈）
+        applyServiceState()
         refreshStatus()
     }
 
@@ -128,8 +141,14 @@ class MainActivity : Activity() {
     private fun refreshStatus() {
         val enabled = prefs.getBoolean(PREF_ENABLED, false)
         val bt = isBtAudioConnected(this)
+        val svc = when {
+            !enabled -> "已关闭"
+            VolumeClampService.isRunning -> "运行中"
+            else -> "已停止（被系统清理，回到本界面已自动恢复）"
+        }
         tvStatus.text = listOf(
             "限制开关：" + if (enabled) "已启用" else "已关闭",
+            "后台服务：$svc",
             "蓝牙耳机：" + if (bt) "已连接" else "未连接"
         ).joinToString("\n")
         tvCurrentVol.text =

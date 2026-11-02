@@ -47,6 +47,7 @@ class VolumeClampService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         startForegroundNotify()
@@ -62,6 +63,7 @@ class VolumeClampService : Service() {
 
     override fun onDestroy() {
         running = false
+        isRunning = false
         handler.removeCallbacksAndMessages(null)
         contentResolver.unregisterContentObserver(observer)
         super.onDestroy()
@@ -100,5 +102,10 @@ class VolumeClampService : Service() {
         private const val CHANNEL_ID = "volume_cap"
         private const val NOTIF_ID = 1
         private const val TICK_MS = 2000L
+
+        /** 供界面显示"服务是否还活着"（同进程，静态变量即可） */
+        @Volatile
+        var isRunning = false
+            private set
     }
 }
