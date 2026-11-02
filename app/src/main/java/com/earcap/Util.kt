@@ -4,11 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.provider.Settings
 
 // 全局配置（个人小工具，用 SharedPreferences 足够）
 const val PREFS = "config"
 const val PREF_ENABLED = "enabled"
 const val PREF_CAP_PERCENT = "cap_percent"
+const val PREF_FGS = "fgs_enabled"
 const val DEFAULT_CAP_PERCENT = 40
 
 /** 根据用户设置的上限百分比，换算成媒体流的音量档位 */
@@ -30,4 +32,13 @@ fun isBtAudioConnected(context: Context): Boolean {
         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
     }
+}
+
+/** 本应用的无障碍服务是否已在系统设置中开启 */
+fun isAccessibilityEnabled(context: Context): Boolean {
+    val enabled = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabled.contains(context.packageName)
 }

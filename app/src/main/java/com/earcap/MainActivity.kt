@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var tvCapValue: TextView
     private lateinit var swEnabled: Switch
     private lateinit var sbCap: SeekBar
+    private lateinit var swFgs: Switch
 
     // 只用来刷新界面上的"当前音量"显示
     private val volumeObserver = object : ContentObserver(handler) {
@@ -53,6 +54,14 @@ class MainActivity : Activity() {
         swEnabled.isChecked = prefs.getBoolean(PREF_ENABLED, false)
         swEnabled.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean(PREF_ENABLED, checked).apply()
+            applyServiceState()
+            refreshStatus()
+        }
+
+        swFgs = findViewById(R.id.swFgs)
+        swFgs.isChecked = prefs.getBoolean(PREF_FGS, false)
+        swFgs.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean(PREF_FGS, checked).apply()
             applyServiceState()
             refreshStatus()
         }
@@ -118,7 +127,8 @@ class MainActivity : Activity() {
     }
 
     private fun applyServiceState() {
-        if (prefs.getBoolean(PREF_ENABLED, false)) {
+        // 前台服务只是可选双保险，默认不开；主力是无障碍服务
+        if (prefs.getBoolean(PREF_FGS, false)) {
             startForegroundService(Intent(this, VolumeClampService::class.java))
         } else {
             stopService(Intent(this, VolumeClampService::class.java))
@@ -140,15 +150,17 @@ class MainActivity : Activity() {
 
     private fun refreshStatus() {
         val enabled = prefs.getBoolean(PREF_ENABLED, false)
+        val fgsOn = prefs.getBoolean(PREF_FGS, false)
         val bt = isBtAudioConnected(this)
         val svc = when {
-            !enabled -> "已关闭"
+            !fgsOn -> "未启用（可选）"
             VolumeClampService.isRunning -> "运行中"
-            else -> "已停止（被系统清理，回到本界面已自动恢复）"
+            else -> "已停止（回到本界面已自动恢复）"
         }
         tvStatus.text = listOf(
             "限制开关：" + if (enabled) "已启用" else "已关闭",
-            "后台服务：$svc",
+            "无障碍拦截：" + if (isAccessibilityEnabled(this)) "已开启" else "未开启（点下方按钮去开）",
+            "前台服务：$svc",
             "蓝牙耳机：" + if (bt) "已连接" else "未连接"
         ).joinToString("\n")
         tvCurrentVol.text =
