@@ -78,10 +78,14 @@ class AirPodsController(private val context: Context) {
             callback(false, "需要 Android 10 及以上系统")
             return
         }
+        // AirPods 在盒子里 / 未连接时，AAP 通道不会建立 —— 先拦下来给明确提示
+        if (!isBtAudioConnected(context)) {
+            callback(false, "耳机未处于连接状态：请先戴上 AirPods、播放音乐，再点连接")
+            return
+        }
         Thread {
             try {
-                val sock = device.createInsecureL2capChannel(PSM)
-                sock.connect()
+                val sock = openSocket(device)
                 sock.outputStream.write(HANDSHAKE)
                 sock.outputStream.flush()
                 // 等设备完成会话建立，再发通知使能（可选）与扩展初始化
@@ -99,9 +103,58 @@ class AirPodsController(private val context: Context) {
                 runCatching { socket?.close() }
                 socket = null
                 connected = false
-                handler.post { callback(false, "连接失败：${e.message ?: e.javaClass.simpleName}") }
+                val reason = when (e) {
+                    is java.net.SocketTimeoutException -> "连接超时（耳机可能未连接，或系统屏蔽了蓝牙底层通道）"
+                    is SecurityException -> "权限被拒绝"
+                    else -> e.message ?: e.javaClass.simpleName
+                }
+                handler.post { callback(false, "连接失败：$reason") }
             }
         }.start()
+    }
+
+    /**
+     * 建立 L2CAP 连接。先尝试不加密通道，失败再尝试需认证的通道
+     * （个别 ROM 对 insecure 通道的处理有差异，两条路都试提高成功率）。
+     * 每次 connect 限时 8 秒，避免卡在系统默认的长超时。
+     */
+    private fun openSocket(device: BluetoothDevice): BluetoothSocket {
+        var last: Exception? = null
+        for (secure in listOf(false, true)) {
+            val sock = try {
+                if (secure) device.createL2capChannel(PSM)
+                else device.createInsecureL2capChannel(PSM)
+            } catch (e: Exception) {
+                last = e
+                continue
+            }
+            try {
+                connectWithTimeout(sock, 8000)
+                return sock
+            } catch (e: Exception) {
+                last = e
+                runCatching { sock.close() }
+            }
+        }
+        throw last ?: IOException("L2CAP 连接失败")
+    }
+
+    private fun connectWithTimeout(sock: BluetoothSocket, timeoutMs: Long) {
+        var err: Exception? = null
+        val t = Thread {
+            try {
+                sock.connect()
+            } catch (e: Exception) {
+                err = e
+            }
+        }
+        t.start()
+        t.join(timeoutMs)
+        if (t.isAlive) {
+            runCatching { sock.close() }
+            throw java.net.SocketTimeoutException("L2CAP connect timed out")
+        }
+        err?.let { throw it }
     }
 
     /** 发送降噪模式切换命令 */
